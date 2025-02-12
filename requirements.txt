@@ -1,0 +1,5 @@
+fastapi[standard]==0.115.8
+psycopg2==2.9.10
+pydantic==2.10.6
+pytest==8.3.4
+SQLAlchemy==2.0.38
