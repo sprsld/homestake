@@ -5,6 +5,7 @@ from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 from sqlalchemy.orm import Session
 from typing import List
 
+import homestake.constants as const
 from homestake.database.models import Base, Account, Mortgage, Property, Transaction, User
 from homestake.logger import logger
 
@@ -41,12 +42,11 @@ class DatabaseClient:
             return account.to_dict() if account else None
 
     ### Mortgage ###
-
-    def create_mortgage(self, lender: str, loan_amount: float, interest_rate: int, term: int, start_date: datetime, property_id: int = None) -> Mortgage:
+    def create_mortgage(self, lender: str, loan_amount: float, interest_rate: int, term: int, start_date: datetime, name="Mortgage", property_id: int = None) -> Mortgage:
         with Session(self.engine) as session:
             mortgage = Mortgage(
                 lender=lender,
-                name="Mortgage",
+                name=name,
                 loan_amount=loan_amount,
                 interest_rate=interest_rate,
                 term=term,
@@ -60,13 +60,18 @@ class DatabaseClient:
             except IntegrityError as e:
                 logger.info(e)
                 session.rollback()
-                raise DatabaseDuplicationError(
-                    "Mortgage already exists") from e
+                # SQLITE_DB_ENTRY_EXISTS_MSG in str(e) accounts for local db
+                if const.DB_ENTRY_EXISTS_MSG in str(e) or const.SQLITE_DB_ENTRY_EXISTS_MSG in str(e):
+                    raise DatabaseDuplicationError(
+                        const.MORTGAGE_EXISTS_MSG) from e
+                else:
+                    raise DatabaseClientError(
+                        const.MORTGAGE_CREATE_ERROR_MSG) from e
             except SQLAlchemyError as e:
                 logger.info(e)
                 session.rollback()
                 raise DatabaseClientError(
-                    "Database error occurred while creating mortgage") from e
+                    const.MORTGAGE_CREATE_ERROR_MSG) from e
 
             return mortgage.to_dict()
 
@@ -94,14 +99,14 @@ class DatabaseClient:
                 id=mortgage_id).first()
             if not mortgage:
                 raise DatabaseClientError(
-                    f"Mortgage with id {mortgage_id} not found")
+                    const.MORTGAGE_ID_NOT_FOUND.format(mortgage_id))
 
             for key, value in kwargs.items():
                 if hasattr(mortgage, key):
                     setattr(mortgage, key, value)
                 else:
                     raise DatabaseClientError(
-                        f"Invalid attribute {key} for Mortgage")
+                        const.MORTGAGE_INVALID_ATTR_MSG.format(key))
 
             try:
                 session.commit()
@@ -109,7 +114,7 @@ class DatabaseClient:
                 logger.info(e)
                 session.rollback()
                 raise DatabaseClientError(
-                    "Database error occurred while updating mortgage") from e
+                    const.MORTGAGE_UPDATE_ERROR_MSG) from e
 
             return mortgage.to_dict()
 
@@ -119,7 +124,7 @@ class DatabaseClient:
                 id=mortgage_id).first()
             if not mortgage:
                 raise DatabaseClientError(
-                    f"Mortgage with id {mortgage_id} not found")
+                    const.MORTGAGE_ID_NOT_FOUND.format(mortgage_id))
 
             try:
                 session.delete(mortgage)
@@ -128,7 +133,7 @@ class DatabaseClient:
                 logger.info(e)
                 session.rollback()
                 raise DatabaseClientError(
-                    "Database error occurred while deleting mortgage") from e
+                    const.MORTGAGE_DELETE_ERROR_MSG) from e
 
             return mortgage.to_dict()
 
@@ -155,13 +160,19 @@ class DatabaseClient:
             except IntegrityError as e:
                 logger.info(e)
                 session.rollback()
-                raise DatabaseDuplicationError(
-                    "Property already exists") from e
+                # SQLITE_DB_ENTRY_EXISTS_MSG in str(e) accounts for local db
+                if const.DB_ENTRY_EXISTS_MSG in str(e) or const.SQLITE_DB_ENTRY_EXISTS_MSG in str(e):
+                    raise DatabaseDuplicationError(
+                        const.PROPERTY_EXISTS_MSG) from e
+                else:
+                    raise DatabaseClientError(
+                        const.PROPERTY_CREATE_ERROR_MSG) from e
+
             except SQLAlchemyError as e:
                 logger.info(e)
                 session.rollback()
                 raise DatabaseClientError(
-                    "Database error occurred while creating property") from e
+                    const.PROPERTY_CREATE_ERROR_MSG) from e
 
             return property.to_dict()
 
@@ -189,14 +200,14 @@ class DatabaseClient:
                 id=property_id).first()
             if not property:
                 raise DatabaseClientError(
-                    f"Property with id {property_id} not found")
+                    const.PROPERTY_ID_NOT_FOUND.format(property_id))
 
             for key, value in kwargs.items():
                 if hasattr(property, key):
                     setattr(property, key, value)
                 else:
                     raise DatabaseClientError(
-                        f"Invalid attribute {key} for Property")
+                        const.PROPERTY_INVALID_ATTR_MSG.format(key))
 
             try:
                 session.commit()
@@ -204,7 +215,7 @@ class DatabaseClient:
                 logger.info(e)
                 session.rollback()
                 raise DatabaseClientError(
-                    "Database error occurred while updating property") from e
+                    const.PROPERTY_UPDATE_ERROR_MSG) from e
 
             return property.to_dict()
 
@@ -214,7 +225,7 @@ class DatabaseClient:
                 id=property_id).first()
             if not property:
                 raise DatabaseClientError(
-                    f"Property with id {property_id} not found")
+                    const.PROPERTY_ID_NOT_FOUND.format(property_id))
 
             try:
                 session.delete(property)
@@ -223,7 +234,7 @@ class DatabaseClient:
                 logger.info(e)
                 session.rollback()
                 raise DatabaseClientError(
-                    "Database error occurred while deleting property") from e
+                    const.PROPERTY_DELETE_ERROR_MSG) from e
 
             return property.to_dict()
 
@@ -244,13 +255,13 @@ class DatabaseClient:
             except IntegrityError as e:
                 logger.info(e)
                 session.rollback()
-                raise DatabaseDuplicationError(
-                    "Transaction already exists") from e
+                raise DatabaseClientError(
+                    const.TRANSACTION_CREATE_ERROR_MSG) from e
             except SQLAlchemyError as e:
                 logger.info(e)
                 session.rollback()
                 raise DatabaseClientError(
-                    "Database error occurred while creating transaction") from e
+                    const.TRANSACTION_CREATE_ERROR_MSG) from e
             return transaction.to_dict()
 
     def get_transaction_by_id(self, transaction_id: int) -> Transaction:
@@ -265,11 +276,13 @@ class DatabaseClient:
                 Transaction).filter_by(user_id=user_id).all()
             return [transaction.to_dict() for transaction in transactions]
 
-    def list_transactions_by_account(self, account_id: int) -> Transaction:
+    def list_transactions_by_account(self, account_id: int) -> List[Transaction]:
         with Session(self.engine) as session:
-            transactions = session.query(
-                Transaction).filter_by(account_id=account_id).all()
-            return [transaction.to_dict() for transaction in transactions]
+            account = session.query(Account).filter_by(id=account_id).first()
+            if not account:
+                raise DatabaseClientError(
+                    const.ACCOUNT_ID_NOT_FOUND.format(account_id))
+            return [transaction.to_dict() for transaction in account.transactions]
 
     def update_transaction(self, transaction_id: int, **kwargs) -> Transaction:
         with Session(self.engine) as session:
@@ -277,14 +290,14 @@ class DatabaseClient:
                 Transaction).filter_by(id=transaction_id).first()
             if not transaction:
                 raise DatabaseClientError(
-                    f"Transaction with id {transaction_id} not found")
+                    const.TRANSACTION_ID_NOT_FOUND.format(transaction_id))
 
             for key, value in kwargs.items():
                 if hasattr(transaction, key):
                     setattr(transaction, key, value)
                 else:
                     raise DatabaseClientError(
-                        f"Invalid attribute {key} for Transaction")
+                        const.TRANSACTION_INVALID_ATTR_MSG.format(key))
 
             try:
                 session.commit()
@@ -292,7 +305,7 @@ class DatabaseClient:
                 logger.info(e)
                 session.rollback()
                 raise DatabaseClientError(
-                    "Database error occurred while updating transaction") from e
+                    const.TRANSACTION_UPDATE_ERROR_MSG) from e
 
             return transaction.to_dict()
 
@@ -302,7 +315,7 @@ class DatabaseClient:
                 Transaction).filter_by(id=transaction_id).first()
             if not transaction:
                 raise DatabaseClientError(
-                    f"Transaction with id {transaction_id} not found")
+                    const.TRANSACTION_ID_NOT_FOUND.format(transaction_id))
 
             try:
                 session.delete(transaction)
@@ -311,7 +324,7 @@ class DatabaseClient:
                 logger.info(e)
                 session.rollback()
                 raise DatabaseClientError(
-                    "Database error occurred while deleting transaction") from e
+                    const.TRANSACTION_DELETE_ERROR_MSG) from e
 
             return transaction.to_dict()
 
@@ -338,13 +351,18 @@ class DatabaseClient:
             except IntegrityError as e:
                 logger.info(e)
                 session.rollback()
-                raise DatabaseDuplicationError(
-                    "User already exists") from e
+                # SQLITE_DB_ENTRY_EXISTS_MSG in str(e) accounts for local db
+                if const.DB_ENTRY_EXISTS_MSG in str(e) or const.SQLITE_DB_ENTRY_EXISTS_MSG in str(e):
+                    raise DatabaseDuplicationError(
+                        const.USER_EXISTS_MSG) from e
+                else:
+                    raise DatabaseClientError(
+                        const.USER_CREATE_ERROR_MSG) from e
             except SQLAlchemyError as e:
                 logger.info(e)
                 session.rollback()
                 raise DatabaseClientError(
-                    "Database error occurred while creating user") from e
+                    const.USER_CREATE_ERROR_MSG) from e
 
             return user.to_dict()
 
@@ -362,14 +380,15 @@ class DatabaseClient:
         with Session(self.engine) as session:
             user = session.query(User).filter_by(id=user_id).first()
             if not user:
-                raise DatabaseClientError(f"User with id {user_id} not found")
+                raise DatabaseClientError(
+                    const.USER_ID_NOT_FOUND.format(user_id))
 
             for key, value in kwargs.items():
                 if hasattr(user, key):
                     setattr(user, key, value)
                 else:
                     raise DatabaseClientError(
-                        f"Invalid attribute {key} for User")
+                        const.USER_INVALID_ATTR_MSG.format(key))
 
             try:
                 session.commit()
@@ -377,7 +396,7 @@ class DatabaseClient:
                 logger.info(e)
                 session.rollback()
                 raise DatabaseClientError(
-                    "Database error occurred while updating user") from e
+                    const.USER_UPDATE_ERROR_MSG) from e
 
             return user.to_dict()
 
@@ -385,7 +404,8 @@ class DatabaseClient:
         with Session(self.engine) as session:
             user = session.query(User).filter_by(id=user_id).first()
             if not user:
-                raise DatabaseClientError(f"User with id {user_id} not found")
+                raise DatabaseClientError(
+                    const.USER_ID_NOT_FOUND.format(user_id))
 
             try:
                 session.delete(user)
@@ -394,7 +414,7 @@ class DatabaseClient:
                 logger.info(e)
                 session.rollback()
                 raise DatabaseClientError(
-                    "Database error occurred while deleting user") from e
+                    const.USER_DELETE_ERROR_MSG) from e
 
             return user.to_dict()
 

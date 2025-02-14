@@ -2,10 +2,12 @@ from datetime import datetime, timezone
 import unittest
 from unittest.mock import patch, MagicMock
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
-
-from homestake.database.client import DatabaseClient, DatabaseClientError, DatabaseDuplicationError
-from homestake.database.models import Mortgage, Property, Transaction, User
 from typing import List
+
+
+import homestake.constants as const
+from homestake.database.client import DatabaseClient, DatabaseClientError, DatabaseDuplicationError
+from homestake.database.models import Account, Mortgage, Property, Transaction, User
 
 
 class TestMortgage(unittest.TestCase):
@@ -57,7 +59,25 @@ class TestMortgage(unittest.TestCase):
             mock_session.return_value.__enter__.return_value.add.assert_called_once()
             mock_session.return_value.__enter__.return_value.commit.assert_called_once()
 
-    def test_create_mortgage_integrity_error(self):
+    def test_create_mortgage_integrity_error_name_exists(self):
+        lender = "testlender"
+        amount = 100000.00
+        interest_rate = 5
+        term = 30
+        start_date = datetime.now(timezone.utc)
+        with patch("homestake.database.client.Session") as mock_session:
+            mock_session.return_value.__enter__.return_value.add = MagicMock()
+            mock_session.return_value.__enter__.return_value.commit.side_effect = IntegrityError(
+                f"{const.DB_ENTRY_EXISTS_MSG}: mortgage.name", "mock", "mock")
+            mock_session.return_value.__enter__.return_value.rollback = MagicMock()
+
+            with self.assertRaisesRegex(DatabaseDuplicationError, const.MORTGAGE_EXISTS_MSG):
+                self.db_client.create_mortgage(
+                    lender, amount, interest_rate, term, start_date)
+
+            mock_session.return_value.__enter__.return_value.rollback.assert_called_once()
+
+    def test_create_mortgage_integrity_error_name_no_exists(self):
         lender = "testlender"
         amount = 100000.00
         interest_rate = 5
@@ -69,7 +89,7 @@ class TestMortgage(unittest.TestCase):
                 "mock", "mock", "mock")
             mock_session.return_value.__enter__.return_value.rollback = MagicMock()
 
-            with self.assertRaisesRegex(DatabaseDuplicationError, "Mortgage already exists"):
+            with self.assertRaisesRegex(DatabaseClientError, const.MORTGAGE_CREATE_ERROR_MSG):
                 self.db_client.create_mortgage(
                     lender, amount, interest_rate, term, start_date)
 
@@ -87,7 +107,7 @@ class TestMortgage(unittest.TestCase):
                 "mock")
             mock_session.return_value.__enter__.return_value.rollback = MagicMock()
 
-            with self.assertRaisesRegex(DatabaseClientError, "Database error occurred while creating mortgage"):
+            with self.assertRaisesRegex(DatabaseClientError, const.MORTGAGE_CREATE_ERROR_MSG):
                 self.db_client.create_mortgage(
                     lender, amount, interest_rate, term, start_date)
 
@@ -250,7 +270,7 @@ class TestMortgage(unittest.TestCase):
             mock_session.return_value.__enter__.return_value.commit.side_effect = SQLAlchemyError(
                 "mock")
 
-            with self.assertRaisesRegex(DatabaseClientError, "Database error occurred while updating mortgage"):
+            with self.assertRaisesRegex(DatabaseClientError, const.MORTGAGE_UPDATE_ERROR_MSG):
                 self.db_client.update_mortgage(
                     mortgage_id, lender=new_lender)
 
@@ -267,7 +287,7 @@ class TestMortgage(unittest.TestCase):
                 mock_query, mock_query]
             mock_query.filter_by.return_value.first.return_value = None
 
-            with self.assertRaisesRegex(DatabaseClientError, f"Mortgage with id {mortgage_id} not found"):
+            with self.assertRaisesRegex(DatabaseClientError, const.MORTGAGE_ID_NOT_FOUND.format(mortgage_id)):
                 self.db_client.update_mortgage(
                     mortgage_id, lender=new_lender)
 
@@ -297,13 +317,16 @@ class TestMortgage(unittest.TestCase):
 
     def test_delete_mortgage_sqlalchemy_error(self):
         mortgage_id = 1
+        start_date = datetime.now(timezone.utc)
         with patch("homestake.database.client.Session") as mock_session:
-            mock_session.return_value.__enter__.return_value.query.return_value.filter_by.return_value.first.return_value = Mortgage()
+            mock_session.return_value.__enter__.return_value.query.return_value.filter_by.return_value.first.return_value = Mortgage(
+                start_date=start_date
+            )
             mock_session.return_value.__enter__.return_value.delete.side_effect = SQLAlchemyError(
                 "mock")
             mock_session.return_value.__enter__.return_value.rollback = MagicMock()
 
-            with self.assertRaisesRegex(DatabaseClientError, "Database error occurred while deleting mortgage"):
+            with self.assertRaisesRegex(DatabaseClientError, const.MORTGAGE_DELETE_ERROR_MSG):
                 self.db_client.delete_mortgage(mortgage_id)
 
             mock_session.return_value.__enter__.return_value.rollback.assert_called_once()
@@ -313,7 +336,7 @@ class TestMortgage(unittest.TestCase):
         with patch("homestake.database.client.Session") as mock_session:
             mock_session.return_value.__enter__.return_value.query.return_value.filter_by.return_value.first.return_value = None
 
-            with self.assertRaisesRegex(DatabaseClientError, f"Mortgage with id {mortgage_id} not found"):
+            with self.assertRaisesRegex(DatabaseClientError, const.MORTGAGE_ID_NOT_FOUND.format(mortgage_id)):
                 self.db_client.delete_mortgage(mortgage_id)
 
             mock_session.return_value.__enter__.return_value.query.return_value.filter_by.assert_called_once_with(
@@ -369,7 +392,7 @@ class TestProperty(unittest.TestCase):
             mock_session.return_value.__enter__.return_value.add.assert_called_once()
             mock_session.return_value.__enter__.return_value.commit.assert_called_once()
 
-    def test_create_property_integrity_error(self):
+    def test_create_property_integrity_error_name_exists(self):
         property_name = "primary residence"
         address = "123 Test St"
         purchase_price = 100000.00
@@ -378,10 +401,28 @@ class TestProperty(unittest.TestCase):
         with patch("homestake.database.client.Session") as mock_session:
             mock_session.return_value.__enter__.return_value.add = MagicMock()
             mock_session.return_value.__enter__.return_value.commit.side_effect = IntegrityError(
-                "mock", "mock", "mock")
+                f"{const.DB_ENTRY_EXISTS_MSG}: properties.name", "mock", "mock")
             mock_session.return_value.__enter__.return_value.rollback = MagicMock()
 
-            with self.assertRaisesRegex(DatabaseDuplicationError, "Property already exists"):
+            with self.assertRaisesRegex(DatabaseDuplicationError, const.PROPERTY_EXISTS_MSG):
+                self.db_client.create_property(
+                    property_name, address, purchase_price, purchase_date, current_value)
+
+            mock_session.return_value.__enter__.return_value.rollback.assert_called_once()
+
+    def test_create_property_integrity_error_name_address(self):
+        property_name = "primary residence"
+        address = "123 Test St"
+        purchase_price = 100000.00
+        purchase_date = datetime.now(timezone.utc)
+        current_value = 110000.00
+        with patch("homestake.database.client.Session") as mock_session:
+            mock_session.return_value.__enter__.return_value.add = MagicMock()
+            mock_session.return_value.__enter__.return_value.commit.side_effect = IntegrityError(
+                f"{const.DB_ENTRY_EXISTS_MSG}: properties.address", "mock", "mock")
+            mock_session.return_value.__enter__.return_value.rollback = MagicMock()
+
+            with self.assertRaisesRegex(DatabaseDuplicationError, const.PROPERTY_EXISTS_MSG):
                 self.db_client.create_property(
                     property_name, address, purchase_price, purchase_date, current_value)
 
@@ -399,7 +440,7 @@ class TestProperty(unittest.TestCase):
                 "mock")
             mock_session.return_value.__enter__.return_value.rollback = MagicMock()
 
-            with self.assertRaisesRegex(DatabaseClientError, "Database error occurred while creating property"):
+            with self.assertRaisesRegex(DatabaseClientError, const.PROPERTY_CREATE_ERROR_MSG):
                 self.db_client.create_property(
                     property_name, address, purchase_price, purchase_date, current_value)
 
@@ -552,7 +593,7 @@ class TestProperty(unittest.TestCase):
             mock_session.return_value.__enter__.return_value.commit.side_effect = SQLAlchemyError(
                 "mock")
 
-            with self.assertRaisesRegex(DatabaseClientError, "Database error occurred while updating property"):
+            with self.assertRaisesRegex(DatabaseClientError, const.PROPERTY_UPDATE_ERROR_MSG):
                 self.db_client.update_property(
                     property_id, address=new_address)
 
@@ -569,7 +610,7 @@ class TestProperty(unittest.TestCase):
                 mock_query, mock_query]
             mock_query.filter_by.return_value.first.return_value = None
 
-            with self.assertRaisesRegex(DatabaseClientError, f"Property with id {property_id} not found"):
+            with self.assertRaisesRegex(DatabaseClientError, const.PROPERTY_ID_NOT_FOUND.format(property_id)):
                 self.db_client.update_property(
                     property_id, address=new_address)
 
@@ -603,7 +644,7 @@ class TestProperty(unittest.TestCase):
                 "mock")
             mock_session.return_value.__enter__.return_value.rollback = MagicMock()
 
-            with self.assertRaisesRegex(DatabaseClientError, "Database error occurred while deleting property"):
+            with self.assertRaisesRegex(DatabaseClientError, const.PROPERTY_DELETE_ERROR_MSG):
                 self.db_client.delete_property(property_id)
 
             mock_session.return_value.__enter__.return_value.rollback.assert_called_once()
@@ -613,7 +654,7 @@ class TestProperty(unittest.TestCase):
         with patch("homestake.database.client.Session") as mock_session:
             mock_session.return_value.__enter__.return_value.query.return_value.filter_by.return_value.first.return_value = None
 
-            with self.assertRaisesRegex(DatabaseClientError, f"Property with id {property_id} not found"):
+            with self.assertRaisesRegex(DatabaseClientError, const.PROPERTY_ID_NOT_FOUND.format(property_id)):
                 self.db_client.delete_property(property_id)
 
             mock_session.return_value.__enter__.return_value.query.return_value.filter_by.assert_called_once_with(
@@ -642,7 +683,6 @@ class TestTransaction(unittest.TestCase):
             result = self.db_client.create_transaction(
                 amount, current_date, user_id, account_id)
 
-            print(result)
             self.assertEqual(result["id"], transaction_id)
             self.assertEqual(result["amount"], amount)
             self.assertEqual(result["date"], current_date.isoformat())
@@ -663,7 +703,7 @@ class TestTransaction(unittest.TestCase):
                 "mock", "mock", "mock")
             mock_session.return_value.__enter__.return_value.rollback = MagicMock()
 
-            with self.assertRaisesRegex(DatabaseDuplicationError, "Transaction already exists"):
+            with self.assertRaisesRegex(DatabaseClientError, const.TRANSACTION_CREATE_ERROR_MSG):
                 self.db_client.create_transaction(
                     amount, current_date, user_id, account_id)
 
@@ -680,7 +720,7 @@ class TestTransaction(unittest.TestCase):
                 "mock")
             mock_session.return_value.__enter__.return_value.rollback = MagicMock()
 
-            with self.assertRaisesRegex(DatabaseClientError, "Database error occurred while creating transaction"):
+            with self.assertRaisesRegex(DatabaseClientError, const.TRANSACTION_CREATE_ERROR_MSG):
                 self.db_client.create_transaction(
                     amount, current_date, user_id, account_id)
 
@@ -710,7 +750,7 @@ class TestTransaction(unittest.TestCase):
 
             mock_session.return_value.__enter__.return_value.query.assert_called
 
-    def test_get_transactions_by_user(self):
+    def test_list_transactions_by_user(self):
         transaction_id = 1
         user_id = 1
         with patch("homestake.database.client.Session") as mock_session:
@@ -735,19 +775,27 @@ class TestTransaction(unittest.TestCase):
 
             mock_session.return_value.__enter__.return_value.query.assert_called_once()
 
-    def test_get_transactions_by_account(self):
+    def test_list_transactions_by_account(self):
         transaction_id = 1
         account_id = 1
+        user_id = 1
         with patch("homestake.database.client.Session") as mock_session:
             mock_session.return_value.__enter__.return_value.query = MagicMock(
                 return_value=MagicMock(
                     filter_by=MagicMock(
                         return_value=MagicMock(
-                            first=MagicMock(return_value=[Transaction(
-                                id=transaction_id,
-                                date=datetime.now(timezone.utc),
-                                account_id=account_id
-                            )])
+                            first=MagicMock(
+                                return_value=Account(
+                                    transactions=[
+                                        Transaction(
+                                            id=transaction_id,
+                                            date=datetime.now(timezone.utc),
+                                            account_id=account_id,
+                                            user_id=user_id
+                                        )
+                                    ]
+                                )
+                            )
                         )
                     )
                 )
@@ -758,6 +806,26 @@ class TestTransaction(unittest.TestCase):
             self.assertTrue(isinstance(transactions, List))
             self.assertTrue(all(
                 transaction["id"] == transaction_id and transaction["user_id"] for transaction in transactions))
+
+            mock_session.return_value.__enter__.return_value.query.assert_called_once()
+
+    def test_list_transactions_by_account_account_no_exist(self):
+        account_id = 1
+        with patch("homestake.database.client.Session") as mock_session:
+            mock_session.return_value.__enter__.return_value.query = MagicMock(
+                return_value=MagicMock(
+                    filter_by=MagicMock(
+                        return_value=MagicMock(
+                            first=MagicMock(
+                                return_value=None
+                            )
+                        )
+                    )
+                )
+            )
+
+            with self.assertRaisesRegex(DatabaseClientError, const.ACCOUNT_ID_NOT_FOUND.format(account_id)):
+                self.db_client.list_transactions_by_account(account_id)
 
             mock_session.return_value.__enter__.return_value.query.assert_called_once()
 
@@ -800,7 +868,7 @@ class TestTransaction(unittest.TestCase):
             mock_session.return_value.__enter__.return_value.commit.side_effect = SQLAlchemyError(
                 "mock")
 
-            with self.assertRaisesRegex(DatabaseClientError, "Database error occurred while updating transaction"):
+            with self.assertRaisesRegex(DatabaseClientError, const.TRANSACTION_UPDATE_ERROR_MSG):
                 self.db_client.update_transaction(
                     transaction_id, amount=new_amount)
 
@@ -817,7 +885,7 @@ class TestTransaction(unittest.TestCase):
                 mock_query, mock_query]
             mock_query.filter_by.return_value.first.return_value = None
 
-            with self.assertRaisesRegex(DatabaseClientError, f"Transaction with id {transaction_id} not found"):
+            with self.assertRaisesRegex(DatabaseClientError, const.TRANSACTION_ID_NOT_FOUND.format(transaction_id)):
                 self.db_client.update_transaction(
                     transaction_id, amount=new_amount)
 
@@ -848,7 +916,7 @@ class TestTransaction(unittest.TestCase):
                 "mock")
             mock_session.return_value.__enter__.return_value.rollback = MagicMock()
 
-            with self.assertRaisesRegex(DatabaseClientError, "Database error occurred while deleting transaction"):
+            with self.assertRaisesRegex(DatabaseClientError, const.TRANSACTION_DELETE_ERROR_MSG):
                 self.db_client.delete_transaction(transaction_id)
 
             mock_session.return_value.__enter__.return_value.rollback.assert_called_once()
@@ -858,7 +926,7 @@ class TestTransaction(unittest.TestCase):
         with patch("homestake.database.client.Session") as mock_session:
             mock_session.return_value.__enter__.return_value.query.return_value.filter_by.return_value.first.return_value = None
 
-            with self.assertRaisesRegex(DatabaseClientError, f"Transaction with id {transaction_id} not found"):
+            with self.assertRaisesRegex(DatabaseClientError, const.TRANSACTION_ID_NOT_FOUND.format(transaction_id)):
                 self.db_client.delete_transaction(transaction_id)
 
             mock_session.return_value.__enter__.return_value.query.return_value.filter_by.assert_called_once_with(
@@ -931,7 +999,7 @@ class TestUser(unittest.TestCase):
             mock_session.return_value.__enter__.return_value.add.assert_called_once()
             mock_session.return_value.__enter__.return_value.commit.assert_called_once()
 
-    def test_create_user_integrity_error(self):
+    def test_create_user_integrity_error_name_exists(self):
         user_name = "testuser"
         email = "test@example.com"
         stake = 100
@@ -939,10 +1007,27 @@ class TestUser(unittest.TestCase):
         with patch("homestake.database.client.Session") as mock_session:
             mock_session.return_value.__enter__.return_value.add = MagicMock()
             mock_session.return_value.__enter__.return_value.commit.side_effect = IntegrityError(
-                "mock", "mock", "mock")
+                f"{const.DB_ENTRY_EXISTS_MSG}: user.user_name", "mock", "mock")
             mock_session.return_value.__enter__.return_value.rollback = MagicMock()
 
-            with self.assertRaisesRegex(DatabaseDuplicationError, "User already exists"):
+            with self.assertRaisesRegex(DatabaseDuplicationError, const.USER_EXISTS_MSG):
+                self.db_client.create_user(
+                    user_name, email, stake, mortgage_id)
+
+            mock_session.return_value.__enter__.return_value.rollback.assert_called_once()
+
+    def test_create_user_integrity_error_email_exists(self):
+        user_name = "testuser"
+        email = "test@example.com"
+        stake = 100
+        mortgage_id = 1
+        with patch("homestake.database.client.Session") as mock_session:
+            mock_session.return_value.__enter__.return_value.add = MagicMock()
+            mock_session.return_value.__enter__.return_value.commit.side_effect = IntegrityError(
+                f"{const.DB_ENTRY_EXISTS_MSG}: user.email", "mock", "mock")
+            mock_session.return_value.__enter__.return_value.rollback = MagicMock()
+
+            with self.assertRaisesRegex(DatabaseDuplicationError, const.USER_EXISTS_MSG):
                 self.db_client.create_user(
                     user_name, email, stake, mortgage_id)
 
@@ -959,7 +1044,7 @@ class TestUser(unittest.TestCase):
                 "mock")
             mock_session.return_value.__enter__.return_value.rollback = MagicMock()
 
-            with self.assertRaisesRegex(DatabaseClientError, "Database error occurred while creating user"):
+            with self.assertRaisesRegex(DatabaseClientError, const.USER_CREATE_ERROR_MSG):
                 self.db_client.create_user(
                     user_name, email, stake, mortgage_id)
 
@@ -1043,7 +1128,7 @@ class TestUser(unittest.TestCase):
             mock_session.return_value.__enter__.return_value.commit.side_effect = SQLAlchemyError(
                 "mock")
 
-            with self.assertRaisesRegex(DatabaseClientError, "Database error occurred while updating user"):
+            with self.assertRaisesRegex(DatabaseClientError, const.USER_UPDATE_ERROR_MSG):
                 self.db_client.update_user(user_id, user_name=new_user_name)
 
             self.assertEqual(mock_query.filter_by.call_count, 1)
@@ -1059,7 +1144,7 @@ class TestUser(unittest.TestCase):
                 mock_query, mock_query]
             mock_query.filter_by.return_value.first.return_value = None
 
-            with self.assertRaisesRegex(DatabaseClientError, f"User with id {user_id} not found"):
+            with self.assertRaisesRegex(DatabaseClientError, const.USER_ID_NOT_FOUND.format(user_id)):
                 self.db_client.update_user(user_id, user_name=new_user_name)
 
             self.assertEqual(mock_query.filter_by.call_count, 1)
@@ -1088,7 +1173,7 @@ class TestUser(unittest.TestCase):
                 "mock")
             mock_session.return_value.__enter__.return_value.rollback = MagicMock()
 
-            with self.assertRaisesRegex(DatabaseClientError, "Database error occurred while deleting user"):
+            with self.assertRaisesRegex(DatabaseClientError, const.USER_DELETE_ERROR_MSG):
                 self.db_client.delete_user(user_id)
 
             mock_session.return_value.__enter__.return_value.rollback.assert_called_once()
@@ -1098,7 +1183,7 @@ class TestUser(unittest.TestCase):
         with patch("homestake.database.client.Session") as mock_session:
             mock_session.return_value.__enter__.return_value.query.return_value.filter_by.return_value.first.return_value = None
 
-            with self.assertRaisesRegex(DatabaseClientError, f"User with id {user_id} not found"):
+            with self.assertRaisesRegex(DatabaseClientError, const.USER_ID_NOT_FOUND.format(user_id)):
                 self.db_client.delete_user(user_id)
 
             mock_session.return_value.__enter__.return_value.query.return_value.filter_by.assert_called_once_with(

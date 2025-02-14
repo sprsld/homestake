@@ -2,7 +2,7 @@ from __future__ import annotations
 from typing import List, Optional
 
 from datetime import datetime
-from sqlalchemy import ForeignKey, String, Float, Integer, DateTime
+from sqlalchemy import ForeignKey, String
 from sqlalchemy.orm import declarative_base, Mapped, mapped_column, relationship
 
 import homestake.constants as constants
@@ -22,8 +22,6 @@ class Account(Base):
     type: Mapped[str] = mapped_column(String(constants.NAME_LENGTH))
 
     transactions: Mapped[Optional[List["Transaction"]]] = relationship()
-    mortgage: Mapped[Optional["Mortgage"]] = relationship(
-        back_populates="account", uselist=False)
 
     def to_dict(self):
         return {
@@ -49,9 +47,6 @@ class Mortgage(Account):
     start_date: Mapped[datetime]
     property_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey('properties.id'))
-
-    account: Mapped[Optional["Account"]] = relationship(
-        back_populates="mortgage")
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -79,9 +74,9 @@ class Property(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     name: Mapped[str] = mapped_column(
-        String(constants.NAME_LENGTH), index=True)
+        String(constants.NAME_LENGTH), unique=True, index=True)
     address: Mapped[str] = mapped_column(
-        String(constants.ADDR_LENGTH), index=True)
+        String(constants.ADDR_LENGTH), unique=True, index=True)
     purchase_price: Mapped[float]
     purchase_date: Mapped[datetime]
     current_value: Mapped[float]
