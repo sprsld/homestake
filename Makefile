@@ -5,10 +5,10 @@ deploy-ci:
 	docker-compose up --build
 
 test: clean
-	. venv/bin/activate && pip install --no-cache-dir -r requirements.txt && rm -f ./homestake.db && pytest && deactivate
+	. venv/bin/activate && pip install --no-cache-dir -r requirements.txt && rm -f ./homestake.db && pytest -v && deactivate
 
 test-ci: clean
-	docker-compose run --build --rm app pytest
+	docker-compose run --build --rm app pytest -v
 	docker-compose down
 
 clean:
