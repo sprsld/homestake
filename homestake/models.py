@@ -9,18 +9,18 @@ class Mortgage(BaseModel):
     interest_rate: int
     term: int
     start_date: datetime
-    property_name: Optional[str] = None
+    property_name: str | None = None
 
     model_config = ConfigDict(orm_mode=True)
 
 
 class MortgageUpdate(Mortgage):
-    lender: Optional[str] | None = None
-    loan_amount: Optional[float] | None = None
-    interest_rate: Optional[int] | None = None
-    term: Optional[int] | None = None
-    start_date: Optional[datetime] | None = None
-    property_name: Optional[str] | None = None
+    lender: str | None = None
+    loan_amount: float | None = None
+    interest_rate: int | None = None
+    term: int | None = None
+    start_date: datetime | None = None
+    property_name: str | None = None
 
     model_config = ConfigDict(orm_mode=True)
 
@@ -36,11 +36,11 @@ class Property(BaseModel):
 
 
 class PropertyUpdate(Property):
-    name: Optional[str] | None = None
-    address: Optional[str] | None = None
-    purchase_price: Optional[float] | None = None
-    purchase_date: Optional[datetime] | None = None
-    current_value: Optional[float] | None = None
+    name: str | None = None
+    address: str | None = None
+    purchase_price: float | None = None
+    purchase_date: datetime | None = None
+    current_value: float | None = None
 
     model_config = ConfigDict(orm_mode=True)
 
@@ -55,10 +55,10 @@ class Transaction(BaseModel):
 
 
 class TransactionUpdate(Transaction):
-    amount: Optional[float] | None = None
-    date: Optional[datetime] | None = None
-    user_name: Optional[str] | None = None
-    account_name: Optional[str] | None = None
+    amount: float | None = None
+    date: datetime | None = None
+    user_name: str | None = None
+    account_name: str | None = None
 
     model_config = ConfigDict(orm_mode=True)
 
@@ -67,8 +67,8 @@ class User(BaseModel):
     user_name: str
     email: str
     stake: int
-    lender: Optional[str] = None
-    property_name: Optional[str] = None
+    lender: str | None = None
+    property_name: str | None = None
 
     @field_validator('stake')
     def validate_stake(cls, value):
@@ -80,11 +80,11 @@ class User(BaseModel):
 
 
 class UserUpdate(User):
-    user_name: Optional[str] | None = None
-    email: Optional[str] | None = None
-    stake: Optional[int] | None = None
-    lender: Optional[str] | None = None
-    property_name: Optional[str] | None = None
+    user_name: str | None = None
+    email: str | None = None
+    stake: int | None = None
+    lender: str | None = None
+    property_name: str | None = None
 
     @field_validator('stake')
     def validate_stake(cls, value):
