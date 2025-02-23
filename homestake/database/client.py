@@ -36,7 +36,7 @@ class DatabaseClient:
             accounts = session.query(Account).all()
             return [account.to_dict() for account in accounts]
 
-    def get_account_by_name(self, name: str) -> Account:
+    def get_account_by_name(self, name: str) -> Account | None:
         with Session(self.engine) as session:
             account = session.query(Account).filter_by(name=name).first()
             return account.to_dict() if account else None
@@ -75,19 +75,19 @@ class DatabaseClient:
 
             return mortgage.to_dict()
 
-    def get_mortgage_by_id(self, mortgage_id: int) -> Mortgage:
+    def get_mortgage_by_id(self, mortgage_id: int) -> Mortgage | None:
         with Session(self.engine) as session:
             mortgage = session.query(Mortgage).filter_by(
                 id=mortgage_id).first()
             return mortgage.to_dict() if mortgage else None
 
-    def get_mortgage_by_lender(self, lender: str) -> Mortgage:
+    def get_mortgage_by_lender(self, lender: str) -> Mortgage | None:
         with Session(self.engine) as session:
             mortgage = session.query(Mortgage).filter_by(
                 lender=lender).first()
             return mortgage.to_dict() if mortgage else None
 
-    def get_mortgage_by_property(self, property_id: int) -> Mortgage:
+    def get_mortgage_by_property(self, property_id: int) -> Mortgage | None:
         with Session(self.engine) as session:
             mortgage = session.query(Mortgage).filter_by(
                 property_id=property_id).first()
@@ -176,19 +176,19 @@ class DatabaseClient:
 
             return property.to_dict()
 
-    def get_property_by_address(self, address: str) -> Property:
+    def get_property_by_address(self, address: str) -> Property | None:
         with Session(self.engine) as session:
             property = session.query(Property).filter_by(
                 address=address).first()
             return property.to_dict() if property else None
 
-    def get_property_by_id(self, property_id: int) -> Property:
+    def get_property_by_id(self, property_id: int) -> Property | None:
         with Session(self.engine) as session:
             property = session.query(Property).filter_by(
                 id=property_id).first()
             return property.to_dict() if property else None
 
-    def get_property_by_name(self, name: str) -> Property:
+    def get_property_by_name(self, name: str) -> Property | None:
         with Session(self.engine) as session:
             property = session.query(Property).filter_by(
                 name=name).first()
@@ -264,7 +264,7 @@ class DatabaseClient:
                     const.TRANSACTION_CREATE_ERROR_MSG) from e
             return transaction.to_dict()
 
-    def get_transaction_by_id(self, transaction_id: int) -> Transaction:
+    def get_transaction_by_id(self, transaction_id: int) -> Transaction | None:
         with Session(self.engine) as session:
             transaction = session.query(
                 Transaction).filter_by(id=transaction_id).first()
@@ -366,12 +366,12 @@ class DatabaseClient:
 
             return user.to_dict()
 
-    def get_user_by_name(self, user_name: str) -> User:
+    def get_user_by_name(self, user_name: str) -> User | None:
         with Session(self.engine) as session:
             user = session.query(User).filter_by(user_name=user_name).first()
             return user.to_dict() if user else None
 
-    def get_user_by_id(self, user_id: int) -> User:
+    def get_user_by_id(self, user_id: int) -> User | None:
         with Session(self.engine) as session:
             user = session.query(User).filter_by(id=user_id).first()
             return user.to_dict() if user else None
