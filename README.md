@@ -1,7 +1,7 @@
 # HomeStake
 HomeStake allows owners of a shared property to track loan progress, equity and any expenditures required for maintenance or rennovations.
 
-The app consists of a REST API served via a FastAPI ASGI server, and a Postgres database, with models defined using SQLAlchemy.
+The app consists of a REST API served via a [FastAPI](https://fastapi.tiangolo.com/) ASGI server, and a [Postgres](https://www.postgresql.org) database, with models defined using [SQLAlchemy](https://www.sqlalchemy.org).
 
 ## Table of Contents
 - [Installation](#installation)
