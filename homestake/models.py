@@ -1,6 +1,12 @@
 from datetime import datetime
-from pydantic import BaseModel, ConfigDict, field_validator
-from typing import Optional
+from pydantic import BaseModel, ConfigDict, EmailStr, field_validator, SecretStr
+from pydantic.errors import PydanticUserError
+from homestake import constants
+
+
+class PasswordError(PydanticUserError):
+    code = 'password_error'
+    msg_template = 'Password must be between {min_length} and {max_length} characters'
 
 
 class Mortgage(BaseModel):
@@ -65,10 +71,22 @@ class TransactionUpdate(Transaction):
 
 class User(BaseModel):
     user_name: str
-    email: str
-    stake: int
+    email: EmailStr
+    password: SecretStr
+    stake: int | None = None
     lender: str | None = None
     property_name: str | None = None
+
+    @field_validator('password')
+    def validate_password(cls, value):
+        password_value = value.get_secret_value()
+        if any([
+            len(password_value) < constants.PASS_MIN_LENGTH,
+            len(password_value) > constants.PASS_MAX_LENGTH
+        ]):
+            raise PasswordError(
+                min_length=constants.PASS_MIN_LENGTH, max_length=constants.PASS_MAX_LENGTH)
+        return value
 
     @field_validator('stake')
     def validate_stake(cls, value):
@@ -81,10 +99,22 @@ class User(BaseModel):
 
 class UserUpdate(User):
     user_name: str | None = None
-    email: str | None = None
+    email: EmailStr | None = None
+    password: SecretStr | None = None
     stake: int | None = None
     lender: str | None = None
     property_name: str | None = None
+
+    @field_validator('password')
+    def validate_password(cls, value):
+        password_value = value.get_secret_value()
+        if any([
+            len(password_value) < constants.PASS_MIN_LENGTH,
+            len(password_value) > constants.PASS_MAX_LENGTH
+        ]):
+            raise PasswordError(
+                min_length=constants.PASS_MIN_LENGTH, max_length=constants.PASS_MAX_LENGTH)
+        return value
 
     @field_validator('stake')
     def validate_stake(cls, value):

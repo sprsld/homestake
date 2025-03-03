@@ -1,5 +1,12 @@
+API_TAG_MORTGAGE = "Mortgage"
+API_TAG_PROPERTY = "Property"
+API_TAG_TRANSACTION = "Transaction"
+API_TAG_USER = "User"
+
 NAME_LENGTH = 30
 ADDR_LENGTH = 50
+PASS_MAX_LENGTH = 64
+PASS_MIN_LENGTH = 8
 DB_ENTRY_EXISTS_MSG = "duplicate key value violates unique constraint"
 SQLITE_DB_ENTRY_EXISTS_MSG = "UNIQUE constraint failed"
 

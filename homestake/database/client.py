@@ -335,11 +335,12 @@ class DatabaseClient:
 
     ### User ###
 
-    def create_user(self, user_name: str, email: str, stake: int, mortgage_id: int = None, property_id: int = None) -> User:
+    def create_user(self, user_name: str, email: str, password: str, stake: int, mortgage_id: int = None, property_id: int = None) -> User:
         with Session(self.engine) as session:
             user = User(
                 user_name=user_name,
                 email=email,
+                password=password,
                 stake=stake,
                 mortgage_id=mortgage_id,
                 property_id=property_id

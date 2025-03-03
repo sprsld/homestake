@@ -959,6 +959,7 @@ class TestUser(unittest.TestCase):
         user_id = 1
         user_name = "testuser"
         email = "test@example.com"
+        password = "secretpassword"
         stake = 100
         with patch("homestake.database.client.Session") as mock_session:
             mock_session.return_value.__enter__.return_value.add = MagicMock(
@@ -966,7 +967,7 @@ class TestUser(unittest.TestCase):
             mock_session.return_value.__enter__.return_value.commit = MagicMock()
 
             user = self.db_client.create_user(
-                user_name, email, stake)
+                user_name, email, password, stake)
             self.assertEqual(user["id"], user_id)
             self.assertEqual(user["user_name"], user_name)
             self.assertEqual(user["email"], email)
@@ -979,6 +980,7 @@ class TestUser(unittest.TestCase):
         user_id = 1
         user_name = "testuser"
         email = "test@example.com"
+        password = "secretpassword"
         stake = 100
         mortgage_id = 1
         property_id = 2
@@ -988,7 +990,7 @@ class TestUser(unittest.TestCase):
             mock_session.return_value.__enter__.return_value.commit = MagicMock()
 
             user = self.db_client.create_user(
-                user_name, email, stake, mortgage_id, property_id)
+                user_name, email, password, stake, mortgage_id, property_id)
             self.assertEqual(user["id"], user_id)
             self.assertEqual(user["user_name"], user_name)
             self.assertEqual(user["email"], email)

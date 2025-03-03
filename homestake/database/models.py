@@ -122,7 +122,8 @@ class User(Base):
     user_name: Mapped[str] = mapped_column(
         String(constants.NAME_LENGTH), unique=True, index=True)
     email: Mapped[str] = mapped_column(unique=True, index=True)
-    stake: Mapped[int]
+    password: Mapped[str] = mapped_column(String(constants.PASS_MAX_LENGTH))
+    stake: Mapped[Optional[int]]
     property_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey('properties.id'))
     mortgage_id: Mapped[Optional[int]] = mapped_column(
